@@ -6,6 +6,7 @@ import { createReadStream } from 'node:fs';
 import { join, resolve, extname } from 'node:path';
 import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
+import { openNotebook } from './notebook.mjs';
 
 const exec = promisify(execFile);
 const dataDir = process.env.WORKSPACE_DATA_DIR || join(process.env.LOCALAPPDATA || homedir(), 'AgentWorkspace');
@@ -14,6 +15,7 @@ const dist = join(import.meta.dirname, 'dist');
 const port = Number(process.env.WORKSPACE_PORT || 4789);
 const origin = 'http://127.0.0.1:' + port;
 const jobs = new Map();
+const notebook = await openNotebook(dataDir);
 let projects;
 try { projects = JSON.parse(await readFile(dataFile, 'utf8')); }
 catch (error) { if (error.code !== 'ENOENT') throw error; projects = []; }
@@ -99,6 +101,13 @@ async function api(req, url) {
     return Promise.all(Object.entries(specs).map(async ([id, [name]]) => ({ id, available: Boolean(await executable(name)) })));
   }
   const input = req.method === 'POST' ? await body(req) : {};
+  if (route.startsWith('notebook')) {
+    const scope = input.project || url.searchParams.get('project') || '';
+    if (scope && !projects.some(project => project.id === scope)) throw Error('Proje bulunamadı.');
+    if (route === 'notebook' && req.method === 'GET') return notebook.list(scope);
+    if (route === 'notebook-history' && req.method === 'GET') return notebook.history(scope, url.searchParams.get('id'));
+    if (route === 'notebook-save' && req.method === 'POST') return notebook.save(scope, input);
+  }
   if (req.method === 'POST' && route === 'add') {
     if (typeof input.path !== 'string' || !input.path.trim()) throw Error('Git repo klasörünü gir.');
     const root = (await git(resolve(input.path), ['rev-parse', '--show-toplevel'])).trim();
@@ -209,6 +218,7 @@ async function api(req, url) {
       let prompt = input.prompt.trim();
       const instructions = await readFile(join(root, 'AGENTS.md'), 'utf8').catch(() => '');
       if (instructions) prompt = 'Ortak proje talimatları (AGENTS.md):\n' + instructions.slice(0, 16000) + '\n\nGörev:\n' + prompt;
+      prompt += notebook.prompt(project.id, input.notes);
       const source = jobs.get(input.previous)?.job;
       if (source && source.project === project.id && Object.hasOwn(specs, source.kind)) {
         const [branch, changes] = await Promise.all([

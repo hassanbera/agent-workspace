@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './style.css';
+import { Notebook } from './notebook.jsx';
 
 const names = { codex: 'Codex', claude: 'Claude Code', cursor: 'Cursor Agent' };
-const tabs = ['Değişiklikler', 'Ajanlar', 'Servisler', 'Yetenekler'];
+const tabs = ['Değişiklikler', 'Ajanlar', 'Servisler', 'Bağlam ve planlar', 'Yetenekler'];
 async function api(route, query = {}, payload) {
   const response = await fetch('/api/' + route + '?' + new URLSearchParams(query), payload === undefined ? {} : {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
@@ -18,6 +19,7 @@ function App() {
   const [agents, setAgents] = useState([]);
   const [path, setPath] = useState('');
   const [error, setError] = useState('');
+  const [archive, setArchive] = useState(false);
   useEffect(() => {
     Promise.all([api('projects'), api('agents')]).then(([items, available]) => {
       setProjects(items);
@@ -27,6 +29,7 @@ function App() {
   }, []);
   const project = projects.find(item => item.id === selected);
   function select(id) {
+    setArchive(false);
     localStorage.setItem('workspace.project', id);
     setSelected(id);
   }
@@ -42,10 +45,11 @@ function App() {
   }
   return <div className="shell">
     <aside className="rail">
-      <header className="brand"><span className="mark" aria-hidden="true">AW</span><div>Agent Workspace<small>Yerel çalışma alanı</small></div></header>
+      <header className="brand">Agent Workspace</header>
+      <button className={'archive-link ' + (archive ? 'selected' : '')} aria-pressed={archive} onClick={() => setArchive(true)}>Bilgi arşivi</button>
       <nav aria-label="Projeler">
         <h2>Projeler</h2>
-        {projects.map(item => <button key={item.id} className={item.id === selected ? 'selected' : ''} onClick={() => select(item.id)} title={item.root}>{item.name}</button>)}
+        {projects.map(item => <button key={item.id} className={!archive && item.id === selected ? 'selected' : ''} onClick={() => select(item.id)} title={item.root}>{item.name}</button>)}
       </nav>
       <form onSubmit={add} className="add">
         <label htmlFor="repo">Git repo klasörü</label>
@@ -57,7 +61,7 @@ function App() {
         {agents.map(({ id, available }) => <div key={id}><span className={available ? 'dot ready' : 'dot'}></span>{names[id]}<small>{available ? 'CLI bulundu' : 'CLI eksik'}</small></div>)}
       </div>
     </aside>
-    {project ? <Project onAdd={item => { setProjects(current => [...current, item]); select(item.id); }} key={project.id} project={project} agents={agents} onUpdate={item => setProjects(current => current.map(old => old.id === item.id ? item : old))} />
+    {archive ? <main className="archive-page"><header className="project-head"><h1>Geliştirici bilgi arşivi</h1></header><Notebook api={api} /></main> : project ? <Project onAdd={item => { setProjects(current => [...current, item]); select(item.id); }} key={project.id} project={project} agents={agents} onUpdate={item => setProjects(current => current.map(old => old.id === item.id ? item : old))} />
       : <main className="empty"><h1>İlk projeni ekle</h1><p>Sol panelden bir Git repo klasörü seç. Değişiklikler, ajanlar ve servisler burada görünür.</p></main>}
   </div>;
 }
@@ -79,7 +83,17 @@ function Project({ project, agents, onUpdate, onAdd }) {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [noteOptions, setNoteOptions] = useState([]);
+  const [notes, setNotes] = useState([]);
   const projectQuery = { project: project.id };
+  useEffect(() => {
+    if (tab !== 'Ajanlar') return;
+    let active = true;
+    Promise.all([api('notebook'), api('notebook', { project: project.id })]).then(([archive, projectNotes]) => {
+      if (active) setNoteOptions([...projectNotes, ...archive]);
+    }).catch(error => { if (active) setError(error.message); });
+    return () => { active = false; };
+  }, [project.id, tab]);
   useEffect(() => {
     let active = true;
     let timer;
@@ -171,13 +185,19 @@ function Project({ project, agents, onUpdate, onAdd }) {
       <section className="changes">
         {tab === 'Ajanlar' ? <form className="panel-form" onSubmit={event => {
           event.preventDefault();
-          act('agent-run', { agent, previous, prompt: [prompt, handoff && 'Önceki çalışmanın özeti:\n' + handoff].filter(Boolean).join('\n\n') }, job => { setJobs(items => [job, ...items.filter(item => item.id !== job.id)]); setJobId(job.id); });
+          act('agent-run', { agent, previous, notes, prompt: [prompt, handoff && 'Önceki çalışmanın özeti:\n' + handoff].filter(Boolean).join('\n\n') }, job => { setJobs(items => [job, ...items.filter(item => item.id !== job.id)]); setJobId(job.id); });
         }}>
           <h2>Ajan görevi</h2>
           <label>Ajan<select value={agent} onChange={event => setAgent(event.target.value)}>{Object.entries(names).map(([id, name]) => <option key={id} value={id}>{name}{agents.find(item => item.id === id)?.available ? '' : ' · CLI eksik'}</option>)}</select></label>
           <label>Görev<textarea rows="4" required value={prompt} onChange={event => setPrompt(event.target.value)} /></label>
           <label>Önceki görev<select value={previous} onChange={event => setPrevious(event.target.value)}><option value="">Yeni görev</option>{runRows.filter(job => job.status !== 'Çalışıyor').map(job => <option key={job.id} value={job.id}>{names[job.kind]} · {job.request?.slice(0, 80) || job.status}</option>)}</select></label>
           <label>Devir notu<textarea rows="3" value={handoff} onChange={event => setHandoff(event.target.value)} placeholder="Kararlar, değişen dosyalar ve testler" /></label>
+          {noteOptions.length > 0 && <details className="note-picker"><summary>Göreve eklenen kayıtlar ({notes.length}/8)</summary>
+            {noteOptions.map(item => <label key={item.id}><input type="checkbox" checked={notes.includes(item.id)} disabled={notes.length >= 8 && !notes.includes(item.id)} onChange={event => {
+              const checked = event.target.checked;
+              setNotes(current => checked ? [...current, item.id] : current.filter(id => id !== item.id));
+            }} /><span>{item.title}<small>{item.kind}</small></span></label>)}
+          </details>}
           <button className="primary" disabled={busy || !browserAvailable}>Görevi başlat</button>
           {agent === 'cursor' && <small>Cursor bu sürümde inceleme modunda çalışır.</small>}
         </form> : <form className="panel-form" onSubmit={event => {
@@ -199,6 +219,7 @@ function Project({ project, agents, onUpdate, onAdd }) {
         {current ? <><div className="log-toolbar"><span>{new Date(current.started).toLocaleTimeString('tr-TR')}</span>{current.status === 'Çalışıyor' && <button disabled={busy} onClick={() => act('stop', { id: current.id })}>Durdur</button>}</div><pre className="terminal">{current.output || 'Çıktı bekleniyor…'}</pre></> : <p className="muted">Henüz çalışma kaydı yok.</p>}
       </section>
     </div>}
+    {tab === 'Bağlam ve planlar' && <Notebook api={api} project={project.id} />}
     {tab === 'Yetenekler' && <div className="split">
       <form className="panel-form changes" onSubmit={event => {
         event.preventDefault();

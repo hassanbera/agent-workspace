@@ -18,6 +18,10 @@ Tarayıcıda [127.0.0.1:4789](http://127.0.0.1:4789/) adresini aç. Bir Git repo
 - **Ajanlar:** Yerel Codex, Claude Code ve Cursor CLI başlatıcıları. Ortak talimatlar için repo kökündeki `AGENTS.md` kullanılır. Önceki çalışma seçilirse görev metni, güncel Git durumu ve desteklenen son yanıt yeni komuta eklenir. Devir notunu düzenleyebilirsin.
 - **Servisler:** Her servis için klasör ve başlatma komutu kaydet. Workspace çalıştırdığın sürecin durumunu ve çıktısını gösterir.
 - **Yetenekler:** Projede mevcut skill dosyalarını gör veya seçtiğin ajan için yeni bir `SKILL.md` oluştur.
+- **Bilgi arşivi:** Frontend şablonlarını, kütüphane tercihlerini, backend mimari ve test notlarını, hata çözümlerini ve tasarım referanslarını etiketle ve ara.
+- **Bağlam ve planlar:** Proje kararlarını, güncel durumu ve planları ayrı kaydet. Plan durumunu güncelle ve önceki sürümleri aç. Ajan görevi başlatırken ilgili arşiv veya proje kayıtlarını seç.
+
+Arşiv ve proje notları yerelde `notebook.json` dosyasına yazılır. Kayıt başına son 30 eski sürüm saklanır. Ajan görevine seçilen en fazla sekiz kayıt, toplam 12.000 karaktere kadar eklenir.
 
 ## Davranış ve kapsam
 
