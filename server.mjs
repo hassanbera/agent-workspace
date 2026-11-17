@@ -15,6 +15,7 @@ const dist = join(import.meta.dirname, 'out');
 const port = Number(process.env.WORKSPACE_PORT || 4789);
 const origin = 'http://127.0.0.1:' + port;
 const jobs = new Map();
+let pickerOpen = false;
 const notebook = await openNotebook(dataDir);
 let projects;
 try { projects = JSON.parse(await readFile(dataFile, 'utf8')); }
@@ -108,9 +109,24 @@ async function api(req, url) {
     if (route === 'notebook-history' && req.method === 'GET') return notebook.history(scope, url.searchParams.get('id'));
     if (route === 'notebook-save' && req.method === 'POST') return notebook.save(scope, input);
   }
-  if (req.method === 'POST' && route === 'add') {
-    if (typeof input.path !== 'string' || !input.path.trim()) throw Error('Git repo klasörünü gir.');
-    const root = (await git(resolve(input.path), ['rev-parse', '--show-toplevel'])).trim();
+  if (req.method === 'POST' && (route === 'add' || route === 'pick-project')) {
+    let path = input.path;
+    if (route === 'pick-project') {
+      if (process.platform !== 'win32') throw Error('Klasör seçici Windows gerektirir.');
+      if (pickerOpen) throw Error('Klasör seçici zaten açık.');
+      pickerOpen = true;
+      try {
+        const result = await exec('powershell.exe', [
+          '-NoProfile', '-STA', '-File', join(import.meta.dirname, 'pick-project.ps1'),
+        ], { windowsHide: true, timeout: 300_000 });
+        path = result.stdout.trim();
+        if (!path) return null;
+      } finally { pickerOpen = false; }
+    }
+    if (typeof path !== 'string' || !path.trim()) throw Error('Bir Git proje klasörü seç.');
+    let root;
+    try { root = (await git(resolve(path), ['rev-parse', '--show-toplevel'])).trim(); }
+    catch { throw Error('Bu klasör bir Git reposu içinde değil. Başka bir klasör seç.'); }
     const existing = projects.find(project => project.root.toLowerCase() === root.toLowerCase());
     if (existing) return existing;
     const project = { id: randomUUID(), root, name: root.split(/[\\/]/).at(-1), services: [] };

@@ -75,6 +75,7 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:1; }
 main { min-width:0; padding:0 clamp(16px,3vw,40px) 32px; width:100%; max-width:1520px; margin-inline:auto; }
 .empty { padding-top:56px; }
 .empty p { color:var(--muted); max-width:52ch; margin-top:12px; }
+.empty button { margin-top:16px; }
 .project-head { display:flex; justify-content:space-between; align-items:center; gap:16px; padding-block:36px 20px; }
 .project-head > div:first-child { min-width:0; }
 .project-head code { display:block; color:var(--muted); font-size:.76rem; margin-top:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

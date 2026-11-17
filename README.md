@@ -12,7 +12,7 @@ npm run build
 npm start
 ```
 
-Tarayıcıda [127.0.0.1:4789](http://127.0.0.1:4789/) adresini aç. Bir Git repo klasörü ekle.
+Tarayıcıda [127.0.0.1:4789](http://127.0.0.1:4789/) adresini aç. **Proje aç** düğmesine bas ve Windows klasör seçicisinden bir Git projesi seç. Bir alt klasör seçersen Workspace ilgili Git reposunun kökünü açar.
 
 Sol menüdeki **Renk paleti** üzerinden varsayılan Stüdyo / Limon ve diğer paletler arasında geçiş yap. Seçim tarayıcıda saklanır. Ajan simgeleri [Lobe Icons](https://github.com/lobehub/lobe-icons) paketinden gelir.
 

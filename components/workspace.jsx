@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, GitBranch, Plus, Terminal } from 'lucide-react';
+import { BookOpen, FolderOpen, GitBranch, Plus, Terminal } from 'lucide-react';
 const codexIcon = '/brands/codex-color.svg';
 const claudeIcon = '/brands/claude-color.svg';
 const cursorIcon = '/brands/cursor.svg';
@@ -35,7 +35,7 @@ export default function Workspace() {
   const [projects, setProjects] = useState([]);
   const [selected, setSelected] = useState('');
   const [agents, setAgents] = useState([]);
-  const [path, setPath] = useState('');
+  const [picking, setPicking] = useState(false);
   const [error, setError] = useState('');
   const [archive, setArchive] = useState(false);
   const [palette, setPalette] = useState(null);
@@ -60,15 +60,17 @@ export default function Workspace() {
     localStorage.setItem('workspace.project', id);
     setSelected(id);
   }
-  async function add(event) {
-    event.preventDefault();
+  async function openProject() {
+    if (picking) return;
+    setPicking(true);
     setError('');
     try {
-      const item = await api('add', {}, { path });
+      const item = await api('pick-project', {}, {});
+      if (!item) return;
       setProjects(current => current.some(project => project.id === item.id) ? current : [...current, item]);
       select(item.id);
-      setPath('');
     } catch (error) { setError(error.message); }
+    finally { setPicking(false); }
   }
   return <div className="shell">
     <aside className="rail">
@@ -78,12 +80,10 @@ export default function Workspace() {
         <h2>Projeler</h2>
         {projects.map(item => <Button variant="ghost" key={item.id} className={!archive && item.id === selected ? 'selected' : ''} onClick={() => select(item.id)} title={item.root}>{item.name}</Button>)}
       </nav>
-      <form onSubmit={add} className="add">
-        <label htmlFor="repo">Git repo klasörü</label>
-        <Input id="repo" value={path} onChange={event => setPath(event.target.value)} placeholder="C:\\projeler\\uygulama" required />
-        <Button variant="outline">Projeyi ekle</Button>
+      <div className="add">
+        <Button variant="outline" disabled={picking} onClick={openProject}><FolderOpen size={16} />{picking ? 'Klasör seçici açık…' : 'Proje aç'}</Button>
         {error && <p role="alert" className="error">{error}</p>}
-      </form>
+      </div>
       <div className="availability">
         {agents.map(({ id, available }) => <div key={id}><AgentIcon id={id} />{names[id]}<small>{available ? 'Hazır' : 'CLI eksik'}</small></div>)}
         <details className="palettes"><summary>Renk paleti</summary>
@@ -94,7 +94,7 @@ export default function Workspace() {
       </div>
     </aside>
     {archive ? <main className="archive-page"><header className="project-head"><h1>Geliştirici bilgi arşivi</h1></header><Notebook api={api} /></main> : project ? <Project onAdd={item => { setProjects(current => [...current, item]); select(item.id); }} key={project.id} project={project} agents={agents} onUpdate={item => setProjects(current => current.map(old => old.id === item.id ? item : old))} />
-      : <main className="empty"><h1>İlk projeni ekle</h1><p>Sol panelden bir Git repo klasörü seç. Değişiklikler, ajanlar ve servisler burada görünür.</p></main>}
+      : <main className="empty"><h1>Bir proje aç</h1><p>Windows klasör seçicisinden Git projeni seç.</p><Button disabled={picking} onClick={openProject}><FolderOpen size={16} />{picking ? 'Klasör seçici açık…' : 'Klasör seç'}</Button></main>}
   </div>;
 }
 
