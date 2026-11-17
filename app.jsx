@@ -9,6 +9,7 @@ import cursorIcon from '@lobehub/icons-static-svg/icons/cursor.svg?no-inline';
 const names = { codex: 'Codex', claude: 'Claude Code', cursor: 'Cursor Agent' };
 const icons = { codex: codexIcon, claude: claudeIcon, cursor: cursorIcon };
 const palettes = [
+  { id: 'daylight', title: 'Gün Işığı / Okyanus' },
   { id: 'graphite', title: 'Grafit / Mavi' },
   { id: 'paper', title: 'Kâğıt / Bordo' },
   { id: 'ink', title: 'Mürekkep / Kehribar' },
@@ -32,10 +33,10 @@ function App() {
   const [path, setPath] = useState('');
   const [error, setError] = useState('');
   const [archive, setArchive] = useState(false);
-  const [palette, setPalette] = useState(() => palettes.find(item => item.id === localStorage.getItem('workspace.palette'))?.id || 'graphite');
+  const [palette, setPalette] = useState(() => palettes.find(item => item.id === localStorage.getItem('workspace.palette.v2'))?.id || 'daylight');
   useEffect(() => {
     document.documentElement.dataset.palette = palette;
-    localStorage.setItem('workspace.palette', palette);
+    localStorage.setItem('workspace.palette.v2', palette);
   }, [palette]);
   useEffect(() => {
     Promise.all([api('projects'), api('agents')]).then(([items, available]) => {
@@ -62,7 +63,7 @@ function App() {
   }
   return <div className="shell">
     <aside className="rail">
-      <header className="brand">Agent Workspace</header>
+      <header className="brand"><span className="brand-sign" aria-hidden="true">/</span>Agent Workspace</header>
       <button className={'archive-link ' + (archive ? 'selected' : '')} aria-pressed={archive} onClick={() => setArchive(true)}>Bilgi arşivi</button>
       <nav aria-label="Projeler">
         <h2>Projeler</h2>
@@ -187,6 +188,11 @@ function Project({ project, agents, onUpdate, onAdd }) {
         <div className="branch">{git?.branch || 'HEAD'}{git?.ahead && git.ahead !== '0' ? <small>{git.ahead} gönderilmemiş</small> : null}</div>
       </div>
     </header>
+    <div className="project-strip" aria-label="Proje durumu">
+      <button onClick={() => setTab('Değişiklikler')}>Değişen <strong>{git?.files.length ?? '–'}</strong></button>
+      <button onClick={() => setTab('Değişiklikler')}>Stage <strong>{git ? staged : '–'}</strong></button>
+      <button onClick={() => setTab('Ajanlar')}>Çalışan ajan <strong>{jobs.filter(job => Object.hasOwn(names, job.kind) && job.status === 'Çalışıyor').length}</strong></button>
+    </div>
     <div className="tabs" aria-label="Proje bölümleri">{tabs.map(label => <button key={label} aria-pressed={tab === label} onClick={() => { setTab(label); setError(''); setNotice(''); }}>{label}</button>)}</div>
     {error && <pre className="banner error" role="alert">{error}</pre>}
     {notice && <p className="banner" role="status">{notice}</p>}
@@ -220,7 +226,7 @@ function Project({ project, agents, onUpdate, onAdd }) {
           <button disabled={busy || !branch.trim()}>Worktree aç</button>
         </form>
         <div className="section-head"><h2>{file || 'Commit geçmişi'}</h2></div>
-        {file ? <><button className="back" onClick={() => { setFile(null); setDiff(''); }}>Geçmişi göster</button><pre className="diff">{(diff || 'Bu dosya için diff yok.').split('\n').map((line, i) => <span key={i} className={line.startsWith('+') ? 'plus' : line.startsWith('-') ? 'minus' : line.startsWith('@@') ? 'hunk' : ''}>{line}{'\n'}</span>)}</pre></> :
+        {file ? <><button className="back" onClick={() => { setFile(null); setDiff(''); }}>Geçmişi göster</button><pre className="diff">{(diff || 'Bu dosya için diff yok.').split('\n').map((line, i) => <span key={i} className={line.startsWith('+') ? 'plus' : line.startsWith('-') ? 'minus' : line.startsWith('@@') ? 'hunk' : ''}>{line || ' '}</span>)}</pre></> :
           <div className="history">{git?.log ? git.log.split('\n').map(line => {
             const [hash, ...summary] = line.split('\t');
             return <div key={hash}><code>{hash}</code><span>{summary.join(' ')}</span></div>;
