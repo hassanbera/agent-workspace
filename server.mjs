@@ -154,6 +154,13 @@ async function api(req, url) {
   }
   if (req.method !== 'POST') throw Error('İşlem bulunamadı.');
   switch (route) {
+    case 'stage-all': {
+      const rows = statusRows(await git(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all']));
+      if (rows.some(row => ['DD','AU','UD','UA','DU','AA','UU'].includes(row.code))) {
+        throw Error('Önce Git çakışmalarını çöz.');
+      }
+      return git(root, ['add', '-A']);
+    }
     case 'stage': case 'unstage': {
       const rows = statusRows(await git(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all']));
       const file = rows.find(row => row.path === input.path);
@@ -275,7 +282,7 @@ http.createServer(async (req, res) => {
   }
   const path = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
   if (!/^(index\.html|assets\/[\w.-]+)$/.test(path)) { res.writeHead(404).end(); return; }
-  const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
+  const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
   const stream = createReadStream(join(dist, path));
   stream.on('error', () => res.writeHead(404).end('Önce npm run build çalıştırın.'));
   stream.on('open', () => {

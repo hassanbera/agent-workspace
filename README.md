@@ -14,6 +14,8 @@ npm start
 
 Tarayıcıda [127.0.0.1:4789](http://127.0.0.1:4789/) adresini aç. Bir Git repo klasörü ekle.
 
+Sol menüdeki **Renk paleti** üzerinden Grafit / Mavi, Kâğıt / Bordo ve Mürekkep / Kehribar arasında geçiş yap. Seçim tarayıcıda saklanır. Ajan simgeleri [Lobe Icons](https://github.com/lobehub/lobe-icons) paketinden gelir.
+
 - **Değişiklikler:** Canlı Git durumu, dosya diff'i, dosya bazında stage ve unstage, commit geçmişi, commit ve push. Yeni bir branch için ayrı worktree açabilirsin.
 - **Ajanlar:** Yerel Codex, Claude Code ve Cursor CLI başlatıcıları. Ortak talimatlar için repo kökündeki `AGENTS.md` kullanılır. Önceki çalışma seçilirse görev metni, güncel Git durumu ve desteklenen son yanıt yeni komuta eklenir. Devir notunu düzenleyebilirsin.
 - **Servisler:** Her servis için klasör ve başlatma komutu kaydet. Workspace çalıştırdığın sürecin durumunu ve çıktısını gösterir.
@@ -22,6 +24,8 @@ Tarayıcıda [127.0.0.1:4789](http://127.0.0.1:4789/) adresini aç. Bir Git repo
 - **Bağlam ve planlar:** Proje kararlarını, güncel durumu ve planları ayrı kaydet. Plan durumunu güncelle ve önceki sürümleri aç. Ajan görevi başlatırken ilgili arşiv veya proje kayıtlarını seç.
 
 Arşiv ve proje notları yerelde `notebook.json` dosyasına yazılır. Kayıt başına son 30 eski sürüm saklanır. Ajan görevine seçilen en fazla sekiz kayıt, toplam 12.000 karaktere kadar eklenir.
+
+Yeni görevde en güncel proje bağlamı ve devam eden son plan varsayılan olarak seçilir. Ajan formunda bu seçimi kapatabilir veya arşivden başka kayıt ekleyebilirsin. Git ekranında ilk değişiklik otomatik açılır. **İncelet** diff inceleme görevini hazırlar, **Tümünü stage et** dosyaları tek adımda stage eder.
 
 ## Davranış ve kapsam
 

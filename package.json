@@ -10,6 +10,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@lobehub/icons-static-svg": "^1.103.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "vite": "^8.3.8"

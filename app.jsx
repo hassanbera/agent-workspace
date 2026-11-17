@@ -2,8 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './style.css';
 import { Notebook } from './notebook.jsx';
+import codexIcon from '@lobehub/icons-static-svg/icons/codex-color.svg?no-inline';
+import claudeIcon from '@lobehub/icons-static-svg/icons/claude-color.svg?no-inline';
+import cursorIcon from '@lobehub/icons-static-svg/icons/cursor.svg?no-inline';
 
 const names = { codex: 'Codex', claude: 'Claude Code', cursor: 'Cursor Agent' };
+const icons = { codex: codexIcon, claude: claudeIcon, cursor: cursorIcon };
+const palettes = [
+  { id: 'graphite', title: 'Grafit / Mavi' },
+  { id: 'paper', title: 'Kâğıt / Bordo' },
+  { id: 'ink', title: 'Mürekkep / Kehribar' },
+];
+function AgentIcon({ id }) {
+  return <img className={'agent-icon agent-icon-' + id} src={icons[id]} alt="" width="19" height="19" />;
+}
 const tabs = ['Değişiklikler', 'Ajanlar', 'Servisler', 'Bağlam ve planlar', 'Yetenekler'];
 async function api(route, query = {}, payload) {
   const response = await fetch('/api/' + route + '?' + new URLSearchParams(query), payload === undefined ? {} : {
@@ -20,6 +32,11 @@ function App() {
   const [path, setPath] = useState('');
   const [error, setError] = useState('');
   const [archive, setArchive] = useState(false);
+  const [palette, setPalette] = useState(() => palettes.find(item => item.id === localStorage.getItem('workspace.palette'))?.id || 'graphite');
+  useEffect(() => {
+    document.documentElement.dataset.palette = palette;
+    localStorage.setItem('workspace.palette', palette);
+  }, [palette]);
   useEffect(() => {
     Promise.all([api('projects'), api('agents')]).then(([items, available]) => {
       setProjects(items);
@@ -58,7 +75,12 @@ function App() {
         {error && <p role="alert" className="error">{error}</p>}
       </form>
       <div className="availability">
-        {agents.map(({ id, available }) => <div key={id}><span className={available ? 'dot ready' : 'dot'}></span>{names[id]}<small>{available ? 'CLI bulundu' : 'CLI eksik'}</small></div>)}
+        {agents.map(({ id, available }) => <div key={id}><AgentIcon id={id} />{names[id]}<small>{available ? 'Hazır' : 'CLI eksik'}</small></div>)}
+        <details className="palettes"><summary>Renk paleti</summary>
+          {palettes.map(item => <button key={item.id} aria-pressed={palette === item.id} onClick={() => setPalette(item.id)}>
+            <span className={'swatch swatch-' + item.id} aria-hidden="true" />{item.title}
+          </button>)}
+        </details>
       </div>
     </aside>
     {archive ? <main className="archive-page"><header className="project-head"><h1>Geliştirici bilgi arşivi</h1></header><Notebook api={api} /></main> : project ? <Project onAdd={item => { setProjects(current => [...current, item]); select(item.id); }} key={project.id} project={project} agents={agents} onUpdate={item => setProjects(current => current.map(old => old.id === item.id ? item : old))} />
@@ -85,12 +107,20 @@ function Project({ project, agents, onUpdate, onAdd }) {
   const [busy, setBusy] = useState(false);
   const [noteOptions, setNoteOptions] = useState([]);
   const [notes, setNotes] = useState([]);
+  const [autoContext, setAutoContext] = useState(true);
+  const [suggested, setSuggested] = useState([]);
   const projectQuery = { project: project.id };
   useEffect(() => {
     if (tab !== 'Ajanlar') return;
     let active = true;
     Promise.all([api('notebook'), api('notebook', { project: project.id })]).then(([archive, projectNotes]) => {
-      if (active) setNoteOptions([...projectNotes, ...archive]);
+      if (active) {
+        setNoteOptions([...projectNotes, ...archive]);
+        setSuggested([
+          projectNotes.find(item => item.kind === 'Bağlam')?.id,
+          projectNotes.find(item => item.kind === 'Plan' && item.state === 'Devam ediyor')?.id,
+        ].filter(Boolean));
+      }
     }).catch(error => { if (active) setError(error.message); });
     return () => { active = false; };
   }, [project.id, tab]);
@@ -103,7 +133,10 @@ function Project({ project, agents, onUpdate, onAdd }) {
           api('status', { project: project.id }), api('jobs', { project: project.id }),
           file ? api('diff', { project: project.id, path: file }) : '',
         ]);
-        if (active) { setGit(status); setJobs(runs); setDiff(currentDiff); }
+        if (active) {
+          setGit(status); setJobs(runs); setDiff(currentDiff);
+          if (file !== null && !status.files.some(item => item.path === file)) setFile(status.files[0]?.path || '');
+        }
       } catch (error) {
         if (active) setError(error.message);
       } finally {
@@ -126,7 +159,7 @@ function Project({ project, agents, onUpdate, onAdd }) {
     try {
       const result = await api(route, {}, { ...data, project: project.id });
       await onSuccess?.(result);
-      if (['stage', 'unstage', 'commit', 'push'].includes(route)) {
+      if (['stage-all', 'stage', 'unstage', 'commit', 'push'].includes(route)) {
         const [status, currentDiff] = await Promise.all([
           api('status', projectQuery),
           file ? api('diff', { ...projectQuery, path: file }) : '',
@@ -134,24 +167,37 @@ function Project({ project, agents, onUpdate, onAdd }) {
         setGit(status);
         setDiff(currentDiff);
       }
-      setNotice({ push: 'Branch gönderildi.', commit: 'Commit oluşturuldu.', stage: 'Stage edildi.', unstage: 'Stage geri alındı.' }[route] || '');
+      setNotice({ push: 'Branch gönderildi.', commit: 'Commit oluşturuldu.', stage: 'Stage edildi.', 'stage-all': 'Tüm değişiklikler stage edildi.', unstage: 'Stage geri alındı.' }[route] || '');
     } catch (error) { setError(error.message); }
     finally { setBusy(false); }
   }
   const runRows = jobs.filter(job => tab === 'Ajanlar' ? Object.hasOwn(names, job.kind) : !Object.hasOwn(names, job.kind));
   const current = runRows.find(job => job.id === jobId) || runRows[0];
+  const effectiveNotes = [...new Set([...(autoContext ? suggested : []), ...notes])];
   const browserAvailable = agents.some(item => item.id === agent && item.available);
   const staged = git?.files.filter(item => ![' ', '?', 'U', '!'].includes(item.code[0])).length || 0;
+  function reviewChanges() {
+    setPrompt('Bu çalışma ağacındaki staged ve unstaged değişiklikleri incele. Bulguları dosya ve satırla belirt. Dosyaları değiştirme.');
+    setTab('Ajanlar');
+  }
   return <main>
     <header className="project-head"><div><h1>{project.name}</h1><code title={project.root}>{project.root}</code></div>
-      <div className="branch"><span className="dot ready"></span>{git?.branch || 'HEAD'}{git?.ahead && git.ahead !== '0' ? <small>{git.ahead} gönderilmemiş</small> : null}</div>
+      <div className="project-status">
+        <button className="primary" onClick={() => setTab('Ajanlar')}>Yeni ajan görevi</button>
+        <div className="branch">{git?.branch || 'HEAD'}{git?.ahead && git.ahead !== '0' ? <small>{git.ahead} gönderilmemiş</small> : null}</div>
+      </div>
     </header>
     <div className="tabs" aria-label="Proje bölümleri">{tabs.map(label => <button key={label} aria-pressed={tab === label} onClick={() => { setTab(label); setError(''); setNotice(''); }}>{label}</button>)}</div>
     {error && <pre className="banner error" role="alert">{error}</pre>}
     {notice && <p className="banner" role="status">{notice}</p>}
     {tab === 'Değişiklikler' && <div className="split">
       <section className="changes">
-        <div className="section-head"><h2>Dosyalar</h2><span>{git?.files.length || 0}</span></div>
+        <div className="section-head"><h2>Dosyalar <small>{git?.files.length || 0}</small></h2>
+          <div className="button-row">
+            <button className="mini" disabled={!git?.files.length} onClick={reviewChanges}>İncelet</button>
+            <button className="mini" disabled={busy || !git?.files.some(item => item.code[1] !== ' ')} onClick={() => act('stage-all')}>Tümünü stage et</button>
+          </div>
+        </div>
         <div className="file-list">
           {git?.files.map(item => <div className={'file-row ' + (file === item.path ? 'active' : '')} key={item.path}>
             <button title={item.path} onClick={() => { setFile(item.path); setDiff(''); }}><code>{item.code.replaceAll(' ', '·')}</code>{item.path}</button>
@@ -174,7 +220,7 @@ function Project({ project, agents, onUpdate, onAdd }) {
           <button disabled={busy || !branch.trim()}>Worktree aç</button>
         </form>
         <div className="section-head"><h2>{file || 'Commit geçmişi'}</h2></div>
-        {file ? <><button className="back" onClick={() => { setFile(''); setDiff(''); }}>Geçmişi göster</button><pre className="diff">{(diff || 'Bu dosya için diff yok.').split('\n').map((line, i) => <span key={i} className={line.startsWith('+') ? 'plus' : line.startsWith('-') ? 'minus' : line.startsWith('@@') ? 'hunk' : ''}>{line}{'\n'}</span>)}</pre></> :
+        {file ? <><button className="back" onClick={() => { setFile(null); setDiff(''); }}>Geçmişi göster</button><pre className="diff">{(diff || 'Bu dosya için diff yok.').split('\n').map((line, i) => <span key={i} className={line.startsWith('+') ? 'plus' : line.startsWith('-') ? 'minus' : line.startsWith('@@') ? 'hunk' : ''}>{line}{'\n'}</span>)}</pre></> :
           <div className="history">{git?.log ? git.log.split('\n').map(line => {
             const [hash, ...summary] = line.split('\t');
             return <div key={hash}><code>{hash}</code><span>{summary.join(' ')}</span></div>;
@@ -185,15 +231,22 @@ function Project({ project, agents, onUpdate, onAdd }) {
       <section className="changes">
         {tab === 'Ajanlar' ? <form className="panel-form" onSubmit={event => {
           event.preventDefault();
-          act('agent-run', { agent, previous, notes, prompt: [prompt, handoff && 'Önceki çalışmanın özeti:\n' + handoff].filter(Boolean).join('\n\n') }, job => { setJobs(items => [job, ...items.filter(item => item.id !== job.id)]); setJobId(job.id); });
+          act('agent-run', { agent, previous, notes: effectiveNotes, prompt: [prompt, handoff && 'Önceki çalışmanın özeti:\n' + handoff].filter(Boolean).join('\n\n') }, job => { setJobs(items => [job, ...items.filter(item => item.id !== job.id)]); setJobId(job.id); });
         }}>
           <h2>Ajan görevi</h2>
-          <label>Ajan<select value={agent} onChange={event => setAgent(event.target.value)}>{Object.entries(names).map(([id, name]) => <option key={id} value={id}>{name}{agents.find(item => item.id === id)?.available ? '' : ' · CLI eksik'}</option>)}</select></label>
+          <div className="agent-picker" aria-label="Ajan seç">{Object.entries(names).map(([id, name]) => <button type="button" key={id} aria-pressed={agent === id} onClick={() => setAgent(id)}><AgentIcon id={id} /><span>{name}<small>{agents.find(item => item.id === id)?.available ? 'Hazır' : 'CLI eksik'}</small></span></button>)}</div>
           <label>Görev<textarea rows="4" required value={prompt} onChange={event => setPrompt(event.target.value)} /></label>
-          <label>Önceki görev<select value={previous} onChange={event => setPrevious(event.target.value)}><option value="">Yeni görev</option>{runRows.filter(job => job.status !== 'Çalışıyor').map(job => <option key={job.id} value={job.id}>{names[job.kind]} · {job.request?.slice(0, 80) || job.status}</option>)}</select></label>
-          <label>Devir notu<textarea rows="3" value={handoff} onChange={event => setHandoff(event.target.value)} placeholder="Kararlar, değişen dosyalar ve testler" /></label>
-          {noteOptions.length > 0 && <details className="note-picker"><summary>Göreve eklenen kayıtlar ({notes.length}/8)</summary>
-            {noteOptions.map(item => <label key={item.id}><input type="checkbox" checked={notes.includes(item.id)} disabled={notes.length >= 8 && !notes.includes(item.id)} onChange={event => {
+          <div className="task-presets">
+            <button type="button" className="mini" onClick={reviewChanges}>Diff incele</button>
+            <button type="button" className="mini" onClick={() => setPrompt('Değişen kod için ilgili testleri bul ve çalıştır. Sonuçları ve eksikleri raporla.')}>Testleri çalıştır</button>
+          </div>
+          <details className="handoff-fields"><summary>Görev devri{previous ? ' / seçili' : ''}</summary>
+            <label>Önceki görev<select value={previous} onChange={event => setPrevious(event.target.value)}><option value="">Yeni görev</option>{runRows.filter(job => job.status !== 'Çalışıyor').map(job => <option key={job.id} value={job.id}>{names[job.kind]} / {job.request?.slice(0, 80) || job.status}</option>)}</select></label>
+            <label>Devir notu<textarea rows="3" value={handoff} onChange={event => setHandoff(event.target.value)} placeholder="Kararlar, değişen dosyalar ve testler" /></label>
+          </details>
+          {noteOptions.length > 0 && <details className="note-picker"><summary>Göreve eklenen kayıtlar ({effectiveNotes.length}/8)</summary>
+            {suggested.length > 0 && <label><input type="checkbox" checked={autoContext} onChange={event => { setAutoContext(event.target.checked); if (event.target.checked) setNotes(current => current.filter(id => !suggested.includes(id)).slice(0, 8 - suggested.length)); }} />Güncel bağlamı ve aktif planı otomatik ekle</label>}
+            {noteOptions.map(item => <label key={item.id}><input type="checkbox" checked={effectiveNotes.includes(item.id)} disabled={(autoContext && suggested.includes(item.id)) || (effectiveNotes.length >= 8 && !effectiveNotes.includes(item.id))} onChange={event => {
               const checked = event.target.checked;
               setNotes(current => checked ? [...current, item.id] : current.filter(id => id !== item.id));
             }} /><span>{item.title}<small>{item.kind}</small></span></label>)}
@@ -215,8 +268,8 @@ function Project({ project, agents, onUpdate, onAdd }) {
       </section>
       <section className="details">
         <div className="section-head"><h2>Çalışma kayıtları</h2></div>
-        <div className="run-list">{runRows.map(job => <button key={job.id} aria-pressed={job.id === current?.id} onClick={() => setJobId(job.id)}>{names[job.kind] || job.kind}<small>{job.status}</small></button>)}</div>
-        {current ? <><div className="log-toolbar"><span>{new Date(current.started).toLocaleTimeString('tr-TR')}</span>{current.status === 'Çalışıyor' && <button disabled={busy} onClick={() => act('stop', { id: current.id })}>Durdur</button>}</div><pre className="terminal">{current.output || 'Çıktı bekleniyor…'}</pre></> : <p className="muted">Henüz çalışma kaydı yok.</p>}
+        <div className="run-list">{runRows.map(job => <button key={job.id} aria-pressed={job.id === current?.id} onClick={() => setJobId(job.id)}>{Object.hasOwn(names, job.kind) && <AgentIcon id={job.kind} />}{names[job.kind] || job.kind}<small>{job.status}</small></button>)}</div>
+        {current ? <><div className="log-toolbar"><span>{new Date(current.started).toLocaleTimeString('tr-TR')}</span>{current.status === 'Çalışıyor' ? <button disabled={busy} onClick={() => act('stop', { id: current.id })}>Durdur</button> : tab === 'Ajanlar' && <button onClick={() => { setPrevious(current.id); setPrompt('Önceki görevden devam et.'); }}>Bu görevden devam et</button>}</div><pre className="terminal">{current.output || 'Çıktı bekleniyor…'}</pre></> : <p className="muted">Henüz çalışma kaydı yok.</p>}
       </section>
     </div>}
     {tab === 'Bağlam ve planlar' && <Notebook api={api} project={project.id} />}
