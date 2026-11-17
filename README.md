@@ -14,7 +14,9 @@ npm start
 
 Tarayıcıda [127.0.0.1:4789](http://127.0.0.1:4789/) adresini aç. Bir Git repo klasörü ekle.
 
-Sol menüdeki **Renk paleti** üzerinden varsayılan Gün Işığı / Okyanus ve diğer paletler arasında geçiş yap. Seçim tarayıcıda saklanır. Ajan simgeleri [Lobe Icons](https://github.com/lobehub/lobe-icons) paketinden gelir.
+Sol menüdeki **Renk paleti** üzerinden varsayılan Stüdyo / Limon ve diğer paletler arasında geçiş yap. Seçim tarayıcıda saklanır. Ajan simgeleri [Lobe Icons](https://github.com/lobehub/lobe-icons) paketinden gelir.
+
+Arayüz Next.js App Router, Tailwind CSS ve shadcn/ui bileşenleriyle yazıldı. `npm run build` statik arayüzü hazırlar. Yerel Node.js servisi bu arayüzü ve proje API’sini aynı adreste sunar.
 
 - **Değişiklikler:** Canlı Git durumu, dosya diff'i, dosya bazında stage ve unstage, commit geçmişi, commit ve push. Yeni bir branch için ayrı worktree açabilirsin.
 - **Ajanlar:** Yerel Codex, Claude Code ve Cursor CLI başlatıcıları. Ortak talimatlar için repo kökündeki `AGENTS.md` kullanılır. Önceki çalışma seçilirse görev metni, güncel Git durumu ve desteklenen son yanıt yeni komuta eklenir. Devir notunu düzenleyebilirsin.

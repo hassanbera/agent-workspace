@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 const archiveKinds = ['Frontend', 'Backend', 'Hata ve çözüm', 'Tasarım referansı', 'Geliştirici notu'];
 const projectKinds = ['Bağlam', 'Plan'];
@@ -68,17 +71,17 @@ export function Notebook({ api, project = '' }) {
   return <div className="notebook">
     <div className="notebook-index">
       <div className="notebook-toolbar">
-        <button className="primary" type="button" onClick={() => select(newEntry(filter || kinds[0]))}>Yeni kayıt</button>
-        <input type="search" aria-label="Kayıtlarda ara" placeholder="Kayıtlarda ara" value={search} onChange={event => setSearch(event.target.value)} />
+        <Button variant="default" type="button" onClick={() => select(newEntry(filter || kinds[0]))}>Yeni kayıt</Button>
+        <Input type="search" aria-label="Kayıtlarda ara" placeholder="Kayıtlarda ara" value={search} onChange={event => setSearch(event.target.value)} />
       </div>
       <div className="notebook-filters" aria-label="Kayıt türü">
-        <button aria-pressed={!filter} onClick={() => setFilter('')}>Tümü</button>
-        {kinds.map(kind => <button key={kind} aria-pressed={filter === kind} onClick={() => setFilter(kind)}>{kind}</button>)}
+        <Button variant="ghost" aria-pressed={!filter} onClick={() => setFilter('')}>Tümü</Button>
+        {kinds.map(kind => <Button variant="ghost" key={kind} aria-pressed={filter === kind} onClick={() => setFilter(kind)}>{kind}</Button>)}
       </div>
       <div className="notebook-list">
-        {visible.map(item => <button key={item.id} aria-pressed={draft?.id === item.id} disabled={busy} onClick={() => select(item)}>
+        {visible.map(item => <Button variant="ghost" key={item.id} aria-pressed={draft?.id === item.id} disabled={busy} onClick={() => select(item)}>
           <span>{item.title}</span><small>{item.kind}{item.state && ' / ' + item.state}</small>
-        </button>)}
+        </Button>)}
         {!visible.length && <p className="muted">{!loaded && !error ? 'Kayıtlar okunuyor…' : items.length ? 'Aramana uyan kayıt yok.' : 'Henüz kayıt yok.'}</p>}
       </div>
     </div>
@@ -91,12 +94,12 @@ export function Notebook({ api, project = '' }) {
           <div className="notebook-meta">
             <label>Tür<select value={draft.kind} onChange={event => change('kind', event.target.value)}>{kinds.map(kind => <option key={kind}>{kind}</option>)}</select></label>
             {draft.kind === 'Plan' && <label>Durum<select value={draft.state || 'Taslak'} onChange={event => change('state', event.target.value)}>{['Taslak', 'Devam ediyor', 'Tamamlandı'].map(state => <option key={state}>{state}</option>)}</select></label>}
-            <label>Etiketler<input placeholder="go, test, react" value={draft.tags} onChange={event => change('tags', event.target.value)} /></label>
+            <label>Etiketler<Input placeholder="go, test, react" value={draft.tags} onChange={event => change('tags', event.target.value)} /></label>
           </div>
-          <label>Başlık<input className="note-title" maxLength="160" required value={draft.title} onChange={event => change('title', event.target.value)} /></label>
-          <label>İçerik<textarea rows="12" maxLength="40000" required placeholder={placeholders[draft.kind]} value={draft.content} onChange={event => change('content', event.target.value)} /></label>
-          <div className="notebook-actions"><button className="primary">Kaydet</button>
-            {draft.revisions > 0 && <button type="button" onClick={revisions}>{history ? 'Geçmişi kapat' : 'Geçmişi aç'}</button>}
+          <label>Başlık<Input className="note-title" maxLength="160" required value={draft.title} onChange={event => change('title', event.target.value)} /></label>
+          <label>İçerik<Textarea rows="12" maxLength="40000" required placeholder={placeholders[draft.kind]} value={draft.content} onChange={event => change('content', event.target.value)} /></label>
+          <div className="notebook-actions"><Button variant="default">Kaydet</Button>
+            {draft.revisions > 0 && <Button type="button" onClick={revisions}>{history ? 'Geçmişi kapat' : 'Geçmişi aç'}</Button>}
             {notice && <small role="status">{notice}</small>}
           </div>
         </fieldset>

@@ -5,13 +5,13 @@ import { readFile, writeFile, rename, mkdir, readdir, stat } from 'node:fs/promi
 import { createReadStream } from 'node:fs';
 import { join, resolve, extname } from 'node:path';
 import { homedir } from 'node:os';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { openNotebook } from './notebook.mjs';
 
 const exec = promisify(execFile);
 const dataDir = process.env.WORKSPACE_DATA_DIR || join(process.env.LOCALAPPDATA || homedir(), 'AgentWorkspace');
 const dataFile = join(dataDir, 'projects.json');
-const dist = join(import.meta.dirname, 'dist');
+const dist = join(import.meta.dirname, 'out');
 const port = Number(process.env.WORKSPACE_PORT || 4789);
 const origin = 'http://127.0.0.1:' + port;
 const jobs = new Map();
@@ -281,8 +281,21 @@ http.createServer(async (req, res) => {
     return;
   }
   const path = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
-  if (!/^(index\.html|assets\/[\w.-]+)$/.test(path)) { res.writeHead(404).end(); return; }
-  const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
+  if (!/^(index\.html|_next\/(?:[\w-]+\/)*[\w.-]+\.(?:js|css|woff2)|brands\/[\w-]+\.svg)$/.test(path)) { res.writeHead(404).end(); return; }
+  const types = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
+  if (path === 'index.html') {
+    try {
+      const html = await readFile(join(dist, path), 'utf8');
+      const hashes = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)]
+        .filter(match => match[1])
+        .map(match => "'sha256-" + createHash('sha256').update(match[1]).digest('base64') + "'");
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' " + hashes.join(' ') + "; object-src 'none'; frame-ancestors 'none'");
+      res.end(html);
+    } catch { res.writeHead(404).end('Önce npm run build çalıştırın.'); }
+    return;
+  }
   const stream = createReadStream(join(dist, path));
   stream.on('error', () => res.writeHead(404).end('Önce npm run build çalıştırın.'));
   stream.on('open', () => {
